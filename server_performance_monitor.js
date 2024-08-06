@@ -1,6 +1,7 @@
 const os = require('os');
 const { exec } = require('child_process');
 const { Client } = require('pg');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const client = new Client({
@@ -10,6 +11,8 @@ const client = new Client({
     },
 });
 
+let systemId;
+
 async function connectToDatabase() {
     try {
         await client.connect();
@@ -18,6 +21,25 @@ async function connectToDatabase() {
         console.error('Error connecting to the database', err);
         process.exit(1);
     }
+}
+
+function getSystemId() {
+    const interfaces = os.networkInterfaces();
+    let macAddress;
+    for (const name of Object.keys(interfaces)) {
+        for (const interface of interfaces[name]) {
+            if (!interface.internal && interface.mac !== '00:00:00:00:00:00') {
+                macAddress = interface.mac;
+                break;
+            }
+        }
+        if (macAddress) break;
+    }
+    if (!macAddress) {
+        console.error('Could not determine MAC address');
+        process.exit(1);
+    }
+    return crypto.createHash('sha256').update(macAddress).digest('hex');
 }
 
 function getCpuUsage() {
@@ -120,13 +142,32 @@ async function capturePerformanceMetrics() {
         const diskUsage = await getDiskUsage();
         const networkUsage = await getNetworkUsage();
 
-        const query = `
-            INSERT INTO server_performance (cpu_usage, memory_usage, disk_usage, network_in, network_out)
-            VALUES ($1, $2, $3, $4, $5)
+        const insertQuery = `
+            INSERT INTO server_performance (system_id, cpu_usage, memory_usage, disk_usage, network_in, network_out)
+            VALUES ($1, $2, $3, $4, $5, $6)
         `;
-        const values = [cpuUsage, memoryUsage, diskUsage, networkUsage.in, networkUsage.out];
+        const insertValues = [systemId, cpuUsage, memoryUsage, diskUsage, networkUsage.in, networkUsage.out];
 
-        await client.query(query, values);
+        await client.query(insertQuery, insertValues);
+
+        const countQuery = `SELECT COUNT(*) FROM server_performance WHERE system_id = $1`;
+        const countResult = await client.query(countQuery, [systemId]);
+        const count = parseInt(countResult.rows[0].count);
+
+        if (count > 500) {
+            const deleteQuery = `
+                DELETE FROM server_performance
+                WHERE id IN (
+                    SELECT id FROM server_performance
+                    WHERE system_id = $1
+                    ORDER BY timestamp ASC
+                    LIMIT $2
+                )
+            `;
+            const deleteValues = [systemId, count - 500];
+            await client.query(deleteQuery, deleteValues);
+        }
+
         console.log('Performance metrics captured and stored in the database');
     } catch (err) {
         console.error('Error capturing or storing performance metrics', err);
@@ -135,6 +176,8 @@ async function capturePerformanceMetrics() {
 
 async function main() {
     await connectToDatabase();
+    systemId = getSystemId();
+    console.log(`System ID: ${systemId}`);
 
     setInterval(capturePerformanceMetrics, 5000); // Run every 5 seconds
 }
