@@ -18,7 +18,7 @@ async function connectToDatabase() {
     try {
         await client.connect();
         console.log('Connected to the database');
-        await getOrCreateServerName();
+        await getOrUpdateServerName();
     } catch (err) {
         console.error('Error connecting to the database', err);
         process.exit(1);
@@ -44,14 +44,25 @@ function getSystemId() {
     return crypto.createHash('sha256').update(macAddress).digest('hex');
 }
 
-async function getOrCreateServerName() {
+async function getOrUpdateServerName() {
+    const envServerName = process.env.SERVER_NAME;
+    if (!envServerName) {
+        console.error('SERVER_NAME environment variable is not set');
+        process.exit(1);
+    }
+
     const query = 'SELECT server_name FROM server_performance WHERE system_id = $1 LIMIT 1';
     const result = await client.query(query, [systemId]);
-    if (result.rows.length > 0) {
-        serverName = result.rows[0].server_name;
-    } else {
-        serverName = 'NEW SERVER';
+
+    if (result.rows.length > 0 && result.rows[0].server_name !== envServerName) {
+        // Update the server name if it has changed
+        await client.query('UPDATE server_performance SET server_name = $1 WHERE system_id = $2', [envServerName, systemId]);
+        console.log(`Updated server name to: ${envServerName}`);
+    } else if (result.rows.length === 0) {
+        console.log(`New server detected. Setting name to: ${envServerName}`);
     }
+
+    serverName = envServerName;
     console.log(`Server Name: ${serverName}`);
 }
 
