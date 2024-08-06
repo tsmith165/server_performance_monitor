@@ -12,11 +12,13 @@ const client = new Client({
 });
 
 let systemId;
+let serverName;
 
 async function connectToDatabase() {
     try {
         await client.connect();
         console.log('Connected to the database');
+        await getOrCreateServerName();
     } catch (err) {
         console.error('Error connecting to the database', err);
         process.exit(1);
@@ -40,6 +42,17 @@ function getSystemId() {
         process.exit(1);
     }
     return crypto.createHash('sha256').update(macAddress).digest('hex');
+}
+
+async function getOrCreateServerName() {
+    const query = 'SELECT server_name FROM server_performance WHERE system_id = $1 LIMIT 1';
+    const result = await client.query(query, [systemId]);
+    if (result.rows.length > 0) {
+        serverName = result.rows[0].server_name;
+    } else {
+        serverName = 'NEW SERVER';
+    }
+    console.log(`Server Name: ${serverName}`);
 }
 
 function getCpuUsage() {
@@ -143,14 +156,14 @@ async function capturePerformanceMetrics() {
         const networkUsage = await getNetworkUsage();
 
         const insertQuery = `
-            INSERT INTO server_performance (system_id, cpu_usage, memory_usage, disk_usage, network_in, network_out)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO server_performance (system_id, server_name, cpu_usage, memory_usage, disk_usage, network_in, network_out)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
         `;
-        const insertValues = [systemId, cpuUsage, memoryUsage, diskUsage, networkUsage.in, networkUsage.out];
+        const insertValues = [systemId, serverName, cpuUsage, memoryUsage, diskUsage, networkUsage.in, networkUsage.out];
 
         await client.query(insertQuery, insertValues);
 
-        // Delete older records, keeping only the latest 500
+        // Delete older records, keeping only the latest 51,840 (3 days worth)
         const deleteQuery = `
             DELETE FROM server_performance
             WHERE id IN (
@@ -161,12 +174,15 @@ async function capturePerformanceMetrics() {
                     FROM server_performance
                     WHERE system_id = $1
                 ) ranked
-                WHERE row_num > 500
+                WHERE row_num > 51840
             )
         `;
-        await client.query(deleteQuery, [systemId]);
+        const deleteResult = await client.query(deleteQuery, [systemId]);
 
         console.log('Performance metrics captured and stored in the database');
+        if (deleteResult.rowCount > 0) {
+            console.log(`Deleted ${deleteResult.rowCount} old records for system ${systemId}`);
+        }
     } catch (err) {
         console.error('Error capturing or storing performance metrics', err);
     }
