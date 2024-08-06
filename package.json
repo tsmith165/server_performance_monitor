@@ -1,0 +1,15 @@
+{
+    "name": "server-performance-monitor",
+    "version": "1.0.0",
+    "description": "A Node.js script to monitor server performance metrics",
+    "main": "server_performance_monitor.js",
+    "scripts": {
+        "start": "node server_performance_monitor.js"
+    },
+    "dependencies": {
+        "pg": "^8.7.1",
+        "dotenv": "^10.0.0"
+    },
+    "author": "tsmith165",
+    "license": "MIT"
+}

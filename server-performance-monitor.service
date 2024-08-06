@@ -1,0 +1,14 @@
+[Unit]
+Description=Server Performance Monitor
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node /path/to/your/server_performance_monitor.js
+Restart=always
+User=youruser
+Environment=PATH=/usr/bin:/usr/local/bin
+Environment=NODE_ENV=production
+WorkingDirectory=/path/to/your/project
+
+[Install]
+WantedBy=multi-user.target
