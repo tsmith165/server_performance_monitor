@@ -150,23 +150,21 @@ async function capturePerformanceMetrics() {
 
         await client.query(insertQuery, insertValues);
 
-        const countQuery = `SELECT COUNT(*) FROM server_performance WHERE system_id = $1`;
-        const countResult = await client.query(countQuery, [systemId]);
-        const count = parseInt(countResult.rows[0].count);
-
-        if (count > 500) {
-            const deleteQuery = `
-                DELETE FROM server_performance
-                WHERE id IN (
-                    SELECT id FROM server_performance
+        // Delete older records, keeping only the latest 500
+        const deleteQuery = `
+            DELETE FROM server_performance
+            WHERE id IN (
+                SELECT id
+                FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (PARTITION BY system_id ORDER BY timestamp DESC) as row_num
+                    FROM server_performance
                     WHERE system_id = $1
-                    ORDER BY timestamp ASC
-                    LIMIT $2
-                )
-            `;
-            const deleteValues = [systemId, count - 500];
-            await client.query(deleteQuery, deleteValues);
-        }
+                ) ranked
+                WHERE row_num > 500
+            )
+        `;
+        await client.query(deleteQuery, [systemId]);
 
         console.log('Performance metrics captured and stored in the database');
     } catch (err) {
