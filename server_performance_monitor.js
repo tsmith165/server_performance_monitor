@@ -74,9 +74,28 @@ function getDiskUsage() {
     });
 }
 
+function getNetworkInterface() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        const interface = interfaces[name];
+        for (const info of interface) {
+            if (info.family === 'IPv4' && !info.internal) {
+                return name;
+            }
+        }
+    }
+    return null;
+}
+
 function getNetworkUsage() {
     return new Promise((resolve, reject) => {
-        exec('cat /proc/net/dev | grep eth0:', (error, stdout, stderr) => {
+        const interface = getNetworkInterface();
+        if (!interface) {
+            reject(new Error('No suitable network interface found'));
+            return;
+        }
+
+        exec(`cat /proc/net/dev | grep ${interface}:`, (error, stdout, stderr) => {
             if (error) {
                 reject(`Error: ${error.message}`);
                 return;
