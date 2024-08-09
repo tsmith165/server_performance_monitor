@@ -50,7 +50,9 @@ This Node.js script monitors server performance metrics and stores them in a Pos
 1. Clone this repository:
 
     ```
-    git clone https://github.com/yourusername/server-performance-monitor.git
+    mkdir /root/scripts
+    cd /root/scripts
+    git clone https://github.com/tsmith165/server-performance-monitor.git
     cd server-performance-monitor
     ```
 
