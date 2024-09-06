@@ -57,6 +57,46 @@ This Node.js script monitors server performance metrics and stores them in a Pos
     ```
 
 2. Install dependencies:
+   // File 1: /package.json
+
+{
+"name": "battlemetrics_scrapper",
+"version": "0.1.1",
+"type": "module",
+"private": true,
+"engines": {
+"node": "20.x"
+},
+"scripts": {
+"build": "tsc",
+"start-all": "pnpm build && node dist/tests/run_scrapper.js -a -d 50000",
+"start-interval": "pnpm build && node dist/tests/run_scrapper.js -i -d 50000"
+},
+"dependencies": {
+"@neondatabase/serverless": "^0.9.1",
+"@react-email/components": "^0.0.22",
+"axios": "^1.6.7",
+"dotenv": "^16.4.5",
+"drizzle-orm": "^0.30.1",
+"global": "^4.4.0",
+"module-alias": "^2.2.3",
+"moment": "^2.30.1",
+"moment-timezone": "^0.5.45",
+"pg": "^8.11.5",
+"react": "^18.3.1",
+"resend": "^3.5.0",
+"yargs": "^17.7.2"
+},
+"devDependencies": {
+"@types/node": "20.11.17",
+"@types/pg": "^8.11.6",
+"@types/yargs": "^17.0.32",
+"eslint": "8.56.0",
+"ts-loader": "^9.5.1",
+"ts-node": "^10.9.2",
+"typescript": "^5.4.2"
+}
+}
 
     ```
     npm install
